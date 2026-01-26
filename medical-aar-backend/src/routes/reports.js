@@ -3,8 +3,27 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const jwt = require('jsonwebtoken');
 const Report = require('../models/Report');
 const auth = require('../middleware/auth');
+
+// Auth middleware that also checks query params (for download links)
+const authWithQuery = (req, res, next) => {
+  try {
+    let token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
+    if (!token) {
+      return res.status(401).json({ message: 'No authentication token' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid token' });
+  }
+};
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -41,6 +60,9 @@ router.post('/', auth, async (req, res) => {
 
 router.post('/upload', auth, upload.single('file'), async (req, res) => {
   try {
+    console.log('Upload request received');
+    console.log('File:', req.file);
+    console.log('Body:', req.body);
     const metadata = JSON.parse(req.body.metadata);
     const report = new Report({
       ...metadata,
@@ -49,8 +71,10 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
       uploadedBy: req.user.id,
     });
     await report.save();
+    console.log('Report saved:', report);
     res.status(201).json(report);
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -67,7 +91,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-router.get('/:id/download', auth, async (req, res) => {
+router.get('/:id/download', authWithQuery, async (req, res) => {
   try {
     const report = await Report.findById(req.params.id);
     if (!report) {

@@ -11,7 +11,7 @@ const Login = ({ onLogin }) => {
     setError('');
     
     try {
-      const response = await fetch(`http://localhost:5001/api/auth/${isRegistering ? 'register' : 'login'}`, {
+      const response = await fetch(`http://localhost:5003/api/auth/${isRegistering ? 'register' : 'login'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials)

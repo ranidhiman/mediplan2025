@@ -253,7 +253,7 @@ const MedicalAARSystem = ({ user, onLogout }) => {
   const handleViewReport = (report) => {
     if (report.filePath) {
       const token = localStorage.getItem('token');
-      window.open(`http://localhost:5001/api/reports/${report._id}/download?token=${token}`, '_blank');
+      window.open(`http://localhost:5003/api/reports/${report._id}/download?token=${token}`, '_blank');
     } else {
       alert('No file attached to this report');
     }
