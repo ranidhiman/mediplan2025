@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5001/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -41,23 +41,45 @@ export const reportService = {
     const response = await api.get('/reports');
     return response.data;
   },
-  
+
+  getReport: async (id) => {
+    const response = await api.get(`/reports/${id}`);
+    return response.data;
+  },
+
   createReport: async (reportData) => {
     const response = await api.post('/reports', reportData);
     return response.data;
   },
-  
+
   uploadFile: async (file, metadata) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
-    
+
     const response = await api.post('/reports/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
     return response.data;
+  },
+
+  downloadReport: async (id) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/download`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Download failed');
+    }
+    return response.blob();
+  },
+
+  getFileUrl: (id) => {
+    return `${API_BASE_URL}/reports/${id}/download`;
   },
 };
 

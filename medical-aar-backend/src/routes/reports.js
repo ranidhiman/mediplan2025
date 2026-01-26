@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const multer = require('multer');
 const Report = require('../models/Report');
 const auth = require('../middleware/auth');
@@ -48,6 +50,37 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
     });
     await report.save();
     res.status(201).json(report);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/:id/download', auth, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+    if (!report.filePath) {
+      return res.status(404).json({ message: 'No file attached to this report' });
+    }
+    const filePath = path.resolve(report.filePath);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found on server' });
+    }
+    res.download(filePath, report.fileName);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

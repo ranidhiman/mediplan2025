@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, FileText, Map, MessageSquare, Search, Download, Filter, Upload, File, X, LogOut } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, FileText, Map, MessageSquare, Search, Download, Filter, Upload, File, X, LogOut, Eye } from 'lucide-react';
+import { reportService } from '../services/api';
 
 const MedicalAARSystem = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('chatbot');
@@ -14,63 +15,37 @@ const MedicalAARSystem = ({ user, onLogout }) => {
   const mapInstanceRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const [reports, setReports] = useState([
-    {
-      id: 1,
-      title: 'Operation IRON SHIELD - AAR',
-      date: '2023-03-12',
-      location: 'Grafenwöhr Training Area, Germany',
-      type: 'After Action Report',
-      casualty: 'CPL Maria L. Sanchez',
-      injury: 'Rib fractures with pulmonary contusion',
-      status: 'Completed',
-      fileName: 'iron_shield_aar.pdf'
-    },
-    {
-      id: 2,
-      title: 'Health Service Support Appendix',
-      date: '2023-03-10',
-      location: 'Grafenwöhr Training Area, Germany',
-      type: 'Operations Order',
-      casualty: 'N/A',
-      injury: 'N/A',
-      status: 'Active',
-      fileName: 'health_support_appendix.pdf'
-    }
-  ]);
+  const [reports, setReports] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    date: '',
+    location: '',
+    type: 'After Action Report',
+    casualty: '',
+    injury: '',
+    status: 'Pending Review'
+  });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
-  const incidents = [
-    {
-      id: 1,
-      lat: 49.6917,
-      lng: 11.9428,
-      title: 'CPL Sanchez Injury',
-      date: '2023-03-10',
-      type: 'Vehicle Rollover',
-      severity: 'Moderate',
-      description: 'Rib fractures with pulmonary contusion during convoy training'
-    },
-    {
-      id: 2,
-      lat: 49.6950,
-      lng: 11.9500,
-      title: 'Role 2 Medical Station',
-      date: '2023-03-10',
-      type: 'Medical Facility',
-      severity: 'Info',
-      description: 'Brigade Support Medical Company (BSMC)'
-    },
-    {
-      id: 3,
-      lat: 49.0134,
-      lng: 12.0991,
-      title: 'University Hospital Regensburg',
-      date: '2023-03-10',
-      type: 'Receiving Hospital',
-      severity: 'Info',
-      description: 'Primary host-nation trauma center'
-    }
-  ];
+  const [incidents] = useState([]);
+
+  // Fetch reports from backend
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        setLoadingReports(true);
+        const data = await reportService.getAllReports();
+        setReports(data);
+      } catch (error) {
+        console.error('Error fetching reports:', error);
+      } finally {
+        setLoadingReports(false);
+      }
+    };
+    fetchReports();
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'map' && mapRef.current && !mapInstanceRef.current) {
@@ -207,18 +182,81 @@ const MedicalAARSystem = ({ user, onLogout }) => {
   };
 
   const handleFiles = (files) => {
-    const newFiles = Array.from(files).map(file => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      uploadDate: new Date().toISOString()
-    }));
-    setUploadedFiles([...uploadedFiles, ...newFiles]);
+    if (files[0]) {
+      setSelectedFile(files[0]);
+      setUploadedFiles([{
+        id: Date.now(),
+        name: files[0].name,
+        size: files[0].size,
+        type: files[0].type,
+        file: files[0],
+        uploadDate: new Date().toISOString()
+      }]);
+    }
   };
 
-  const removeFile = (fileId) => {
-    setUploadedFiles(uploadedFiles.filter(file => file.id !== fileId));
+  const removeFile = () => {
+    setUploadedFiles([]);
+    setSelectedFile(null);
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!selectedFile || !uploadForm.title || !uploadForm.date || !uploadForm.location) {
+      alert('Please fill in required fields (Title, Date, Location) and select a file');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await reportService.uploadFile(selectedFile, uploadForm);
+      // Refresh reports list
+      const data = await reportService.getAllReports();
+      setReports(data);
+      // Reset form
+      setSelectedFile(null);
+      setUploadedFiles([]);
+      setUploadForm({
+        title: '',
+        date: '',
+        location: '',
+        type: 'After Action Report',
+        casualty: '',
+        injury: '',
+        status: 'Pending Review'
+      });
+      setActiveTab('reports');
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (report) => {
+    try {
+      const blob = await reportService.downloadReport(report._id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = report.fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download failed. The file may not exist.');
+    }
+  };
+
+  const handleViewReport = (report) => {
+    if (report.filePath) {
+      const token = localStorage.getItem('token');
+      window.open(`http://localhost:5001/api/reports/${report._id}/download?token=${token}`, '_blank');
+    } else {
+      alert('No file attached to this report');
+    }
   };
 
   const formatFileSize = (bytes) => {
@@ -230,10 +268,15 @@ const MedicalAARSystem = ({ user, onLogout }) => {
   };
 
   const filteredReports = reports.filter(report =>
-    report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.casualty.toLowerCase().includes(searchTerm.toLowerCase())
+    (report.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (report.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (report.casualty || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
 
   return (
     <div className="h-screen bg-gray-900 text-gray-100 flex flex-col">
@@ -361,8 +404,15 @@ const MedicalAARSystem = ({ user, onLogout }) => {
             </div>
 
             <div className="grid gap-4">
-              {filteredReports.map(report => (
-                <div key={report.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6 hover:border-green-400 transition-colors">
+              {loadingReports ? (
+                <div className="text-center py-12 text-gray-400">Loading reports...</div>
+              ) : filteredReports.length === 0 ? (
+                <div className="text-center py-12">
+                  <FileText size={48} className="mx-auto mb-4 text-gray-600" />
+                  <p className="text-gray-400">No reports found. Upload your first report to get started.</p>
+                </div>
+              ) : filteredReports.map(report => (
+                <div key={report._id} className="bg-gray-800 border border-gray-700 rounded-lg p-6 hover:border-green-400 transition-colors">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-xl font-bold text-green-400 mb-2">{report.title}</h3>
@@ -378,27 +428,34 @@ const MedicalAARSystem = ({ user, onLogout }) => {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <p className="text-gray-500 text-sm">Date</p>
-                      <p className="text-gray-200">{report.date}</p>
+                      <p className="text-gray-200">{formatDate(report.date)}</p>
                     </div>
                     <div>
                       <p className="text-gray-500 text-sm">Type</p>
-                      <p className="text-gray-200">{report.type}</p>
+                      <p className="text-gray-200">{report.type || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500 text-sm">Casualty</p>
-                      <p className="text-gray-200">{report.casualty}</p>
+                      <p className="text-gray-200">{report.casualty || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500 text-sm">Injury Type</p>
-                      <p className="text-gray-200">{report.injury}</p>
+                      <p className="text-gray-200">{report.injury || 'N/A'}</p>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
-                    <button className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 font-semibold transition-colors">
+                    <button
+                      onClick={() => handleViewReport(report)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 font-semibold transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Eye size={18} />
                       View Full Report
                     </button>
-                    <button className="bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg px-4 py-2 flex items-center gap-2 transition-colors">
+                    <button
+                      onClick={() => handleDownload(report)}
+                      className="bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg px-4 py-2 flex items-center gap-2 transition-colors"
+                    >
                       <Download size={18} />
                       Download
                     </button>
@@ -453,7 +510,7 @@ const MedicalAARSystem = ({ user, onLogout }) => {
 
               {uploadedFiles.length > 0 && (
                 <div className="mt-8">
-                  <h3 className="text-xl font-bold text-gray-200 mb-4">Uploaded Files ({uploadedFiles.length})</h3>
+                  <h3 className="text-xl font-bold text-gray-200 mb-4">Selected File</h3>
                   <div className="space-y-3">
                     {uploadedFiles.map(file => (
                       <div key={file.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex items-center justify-between hover:border-green-400 transition-colors">
@@ -462,12 +519,12 @@ const MedicalAARSystem = ({ user, onLogout }) => {
                           <div className="flex-1">
                             <h4 className="font-semibold text-gray-200">{file.name}</h4>
                             <p className="text-gray-400 text-sm">
-                              {formatFileSize(file.size)} • Uploaded {new Date(file.uploadDate).toLocaleDateString()}
+                              {formatFileSize(file.size)}
                             </p>
                           </div>
                         </div>
                         <button
-                          onClick={() => removeFile(file.id)}
+                          onClick={removeFile}
                           className="text-red-400 hover:text-red-300 transition-colors p-2"
                         >
                           <X size={20} />
@@ -476,15 +533,87 @@ const MedicalAARSystem = ({ user, onLogout }) => {
                     ))}
                   </div>
 
+                  <div className="mt-6 bg-gray-800 border border-gray-700 rounded-lg p-6">
+                    <h3 className="text-lg font-bold text-gray-200 mb-4">Report Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Title *</label>
+                        <input
+                          type="text"
+                          value={uploadForm.title}
+                          onChange={(e) => setUploadForm({...uploadForm, title: e.target.value})}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-green-400"
+                          placeholder="Report title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Date *</label>
+                        <input
+                          type="date"
+                          value={uploadForm.date}
+                          onChange={(e) => setUploadForm({...uploadForm, date: e.target.value})}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-green-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Location *</label>
+                        <input
+                          type="text"
+                          value={uploadForm.location}
+                          onChange={(e) => setUploadForm({...uploadForm, location: e.target.value})}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-green-400"
+                          placeholder="Location"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Type</label>
+                        <select
+                          value={uploadForm.type}
+                          onChange={(e) => setUploadForm({...uploadForm, type: e.target.value})}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-green-400"
+                        >
+                          <option>After Action Report</option>
+                          <option>Operations Order</option>
+                          <option>Incident Report</option>
+                          <option>Medical Report</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Casualty</label>
+                        <input
+                          type="text"
+                          value={uploadForm.casualty}
+                          onChange={(e) => setUploadForm({...uploadForm, casualty: e.target.value})}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-green-400"
+                          placeholder="N/A"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Injury</label>
+                        <input
+                          type="text"
+                          value={uploadForm.injury}
+                          onChange={(e) => setUploadForm({...uploadForm, injury: e.target.value})}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 focus:outline-none focus:border-green-400"
+                          placeholder="N/A"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mt-6 flex gap-3">
-                    <button className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg px-6 py-3 font-semibold transition-colors">
-                      Process & Add to Repository
+                    <button
+                      onClick={handleUploadSubmit}
+                      disabled={uploading}
+                      className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg px-6 py-3 font-semibold transition-colors"
+                    >
+                      {uploading ? 'Uploading...' : 'Upload Report'}
                     </button>
-                    <button 
-                      onClick={() => setUploadedFiles([])}
+                    <button
+                      onClick={removeFile}
                       className="bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg px-6 py-3 font-semibold transition-colors"
                     >
-                      Clear All
+                      Cancel
                     </button>
                   </div>
                 </div>
