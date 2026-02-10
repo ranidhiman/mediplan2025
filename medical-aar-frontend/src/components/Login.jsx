@@ -26,7 +26,7 @@ const Login = ({ onLogin }) => {
         setError(data.message || 'Authentication failed');
       }
     } catch (err) {
-      setError('Connection error. Make sure backend is running on port 5000');
+      setError('Connection error. Make sure backend is running on port 5003');
     }
   };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, FileText, Map, MessageSquare, Search, Download, Filter, Upload, File, X, LogOut, Eye } from 'lucide-react';
+import { Send, FileText, Map, MessageSquare, Search, Download, Filter, Upload, File, X, LogOut, Eye, Trash2 } from 'lucide-react';
 import { reportService } from '../services/api';
 
 const MedicalAARSystem = ({ user, onLogout }) => {
@@ -250,6 +250,17 @@ const MedicalAARSystem = ({ user, onLogout }) => {
     }
   };
 
+  const handleDeleteReport = async (report) => {
+    if (!window.confirm(`Delete "${report.title}"? This cannot be undone.`)) return;
+    try {
+      await reportService.deleteReport(report._id);
+      setReports(prev => prev.filter(r => r._id !== report._id));
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete report.');
+    }
+  };
+
   const handleViewReport = (report) => {
     if (report.filePath) {
       const token = localStorage.getItem('token');
@@ -458,6 +469,13 @@ const MedicalAARSystem = ({ user, onLogout }) => {
                     >
                       <Download size={18} />
                       Download
+                    </button>
+                    <button
+                      onClick={() => handleDeleteReport(report)}
+                      className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                      Delete
                     </button>
                   </div>
                 </div>

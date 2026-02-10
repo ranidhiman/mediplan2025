@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const reportSchema = new mongoose.Schema({
+  documentId: {
+    type: String,
+    unique: true,
+    index: true,
+  },
   title: {
     type: String,
     required: true,
@@ -35,6 +41,21 @@ const reportSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// Generate unique document ID before saving
+reportSchema.pre('save', function(next) {
+  if (!this.documentId) {
+    const timestamp = Date.now().toString();
+    const randomBytes = crypto.randomBytes(4).toString('hex');
+    const hash = crypto.createHash('sha256')
+      .update(timestamp + randomBytes)
+      .digest('hex')
+      .substring(0, 6)
+      .toUpperCase();
+    this.documentId = `RPT-${hash}`;
+  }
+  next();
 });
 
 module.exports = mongoose.model('Report', reportSchema);

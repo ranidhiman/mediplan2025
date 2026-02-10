@@ -78,6 +78,11 @@ export const reportService = {
     return response.blob();
   },
 
+  deleteReport: async (id) => {
+    const response = await api.delete(`/reports/${id}`);
+    return response.data;
+  },
+
   getFileUrl: (id) => {
     return `${API_BASE_URL}/reports/${id}/download`;
   },

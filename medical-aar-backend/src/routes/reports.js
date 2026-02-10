@@ -110,4 +110,27 @@ router.get('/:id/download', authWithQuery, async (req, res) => {
   }
 });
 
+// Delete a report and its file
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    // Delete the file from disk if it exists
+    if (report.filePath) {
+      const filePath = path.resolve(report.filePath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await Report.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Report deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
