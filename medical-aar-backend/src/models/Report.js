@@ -7,22 +7,11 @@ const reportSchema = new mongoose.Schema({
     unique: true,
     index: true,
   },
-  title: {
-    type: String,
-    required: true,
-  },
-  date: {
-    type: Date,
-    required: true,
-  },
-  location: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    required: true,
-  },
+  title: String,
+  date: Date,
+  location: String,
+  mgrsGrid: String,
+  type: String,
   casualty: String,
   injury: String,
   status: {
@@ -31,6 +20,7 @@ const reportSchema = new mongoose.Schema({
   },
   fileName: String,
   filePath: String,
+  extractionPath: String,
   latitude: Number,
   longitude: Number,
   uploadedBy: {

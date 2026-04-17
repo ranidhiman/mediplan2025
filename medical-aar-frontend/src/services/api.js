@@ -86,6 +86,26 @@ export const reportService = {
   getFileUrl: (id) => {
     return `${API_BASE_URL}/reports/${id}/download`;
   },
+
+  updateReport: async (id, data) => {
+    const response = await api.put(`/reports/${id}`, data);
+    return response.data;
+  },
+
+  getExtraction: async (id) => {
+    const response = await api.get(`/reports/${id}/extraction`);
+    return response.data;
+  },
+
+  updateExtraction: async (id, data) => {
+    const response = await api.put(`/reports/${id}/extraction`, data);
+    return response.data;
+  },
+
+  reindex: async (id) => {
+    const response = await api.post(`/reports/${id}/reindex`);
+    return response.data;
+  },
 };
 
 export default api;
